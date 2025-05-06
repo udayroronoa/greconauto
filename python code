@@ -1,1 +1,75 @@
+import subprocess
+import threading
+import tkinter as tk
+from tkinter import ttk, messagebox, scrolledtext
 
+TOOLS = {
+    "Nmap": lambda target, mode: f"nmap {'-T4 -A' if mode == 'aggressive' else '-T1 -sS'} {target}",
+    "Gobuster": lambda target, mode: f"gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt {'-t 50' if mode == 'aggressive' else '-t 1'}",
+    "theHarvester": lambda target, mode: f"theHarvester -d {target} -b all",
+    "WhatWeb": lambda target, mode: f"whatweb {target}",
+    "Sublist3r": lambda target, mode: f"sublist3r -d {target}"
+}
+
+def run_command(command):
+    try:
+        result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT, timeout=120)
+        return result.decode(errors="ignore")
+    except subprocess.CalledProcessError as e:
+        return f"Error: {e.output.decode(errors='ignore')}"
+    except subprocess.TimeoutExpired:
+        return "Error: Command timed out."
+
+def run_scan(target, mode, output_box):
+    output_box.config(state=tk.NORMAL)
+    output_box.delete(1.0, tk.END)  # Clear previous output
+
+    for tool, command_func in TOOLS.items():
+        output_box.insert(tk.END, f"\n{'='*40}\n[+] Running {tool}...\n{'='*40}\n")
+        output_box.update_idletasks()
+        result = run_command(command_func(target, mode))
+        output_box.insert(tk.END, result + "\n")
+        output_box.update_idletasks()
+
+    output_box.config(state=tk.DISABLED)
+
+def on_start_scan(target_entry, mode_var, output_box):
+    target = target_entry.get().strip()
+    if not target:
+        messagebox.showwarning("Input Error", "Please enter a valid domain or IP.")
+        return
+
+    mode = mode_var.get()
+    threading.Thread(target=run_scan, args=(target, mode, output_box), daemon=True).start()
+
+def build_gui():
+    root = tk.Tk()
+    root.title("ReconAutomator - GUI")
+    root.geometry("1000x700")
+    root.configure(bg="#f0f4f7")
+
+    ttk.Label(root, text="ReconAutomator", font=("Helvetica", 20, "bold")).pack(pady=10)
+
+    frame = ttk.Frame(root)
+    frame.pack(pady=10)
+
+    ttk.Label(frame, text="Target (Domain/IP):").grid(row=0, column=0, padx=5)
+    target_entry = ttk.Entry(frame, width=50)
+    target_entry.grid(row=0, column=1, padx=5)
+
+    mode_var = tk.StringVar(value="aggressive")
+    ttk.Label(frame, text="Mode:").grid(row=0, column=2, padx=5)
+    mode_menu = ttk.OptionMenu(frame, mode_var, "aggressive", "aggressive", "stealth")
+    mode_menu.grid(row=0, column=3, padx=5)
+
+    start_button = ttk.Button(root, text="Start Scan", command=lambda: on_start_scan(target_entry, mode_var, output_box))
+    start_button.pack(pady=10)
+
+    output_box = scrolledtext.ScrolledText(root, wrap=tk.WORD, font=("Courier", 10), width=120, height=30)
+    output_box.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+    output_box.config(state=tk.DISABLED)
+
+    root.mainloop()
+
+if __name__ == "__main__":
+    build_gui()
