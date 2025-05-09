@@ -4,4 +4,4 @@ greconauto is an advanced reconnaissance automation tool designed for cybersecur
 
 you can see the code.py copy and paste for creating this tool
 
-read the greconauto.pdf for more understamding.
+read the greconauto.pdf for more understanding.
